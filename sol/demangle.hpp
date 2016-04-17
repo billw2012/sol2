@@ -88,7 +88,7 @@ inline std::string get_type_name() {
         start = 0;
     if (start < name.size() - 1)
         start += 2;
-    name = name.substr(start, end - start);
+    name = name.substr(start, end - start - 1);
     return name;
 }
 #elif defined(__clang__)
@@ -104,7 +104,7 @@ inline std::string get_type_name() {
         start = 0;
     if (start < name.size() - 1)
         start += 1;
-    name = name.substr(start, end - start);
+    name = name.substr(start, end - start - 1);
     return name;
 }
 #else
