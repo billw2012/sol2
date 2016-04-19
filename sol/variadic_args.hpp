@@ -19,71 +19,84 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#ifndef SOL_FUNCTION_RESULT_HPP
-#define SOL_FUNCTION_RESULT_HPP
+#ifndef SOL_VARIADIC_ARGS_HPP
+#define SOL_VARIADIC_ARGS_HPP
 
-#include "reference.hpp"
-#include "tuple.hpp"
 #include "stack.hpp"
 #include "stack_proxy.hpp"
-#include "proxy_base.hpp"
-#include <cstdint>
 
 namespace sol {
-struct function_result : public proxy_base<function_result> {
+struct variadic_args {
 private:
     lua_State* L;
     int index;
-    int returncount;
+    int stacktop;
 
 public:
-    function_result() = default;
-    function_result(lua_State* L, int index = -1, int returncount = 0): L(L), index(index), returncount(returncount) {
-        
-    }
-    function_result(const function_result&) = default;
-    function_result& operator=(const function_result&) = default;
-    function_result(function_result&& o) : L(o.L), index(o.index), returncount(o.returncount) {
+    variadic_args() = default;
+    variadic_args(lua_State* L, int index = -1): L(L), index(lua_absindex(L, index)), stacktop(lua_gettop(L)) {}
+    variadic_args(const variadic_args&) = default;
+    variadic_args& operator=(const variadic_args&) = default;
+    variadic_args(variadic_args&& o) : L(o.L), index(o.index), stacktop(o.stacktop) {
         // Must be manual, otherwise destructor will screw us
         // return count being 0 is enough to keep things clean
         // but will be thorough
         o.L = nullptr;
         o.index = 0;
-        o.returncount = 0;
+        o.stacktop = 0;
     }
-    function_result& operator=(function_result&& o) {
+    variadic_args& operator=(variadic_args&& o) {
         L = o.L;
         index = o.index;
-        returncount = o.returncount;
+        stacktop = o.stacktop;
         // Must be manual, otherwise destructor will screw us
         // return count being 0 is enough to keep things clean
         // but will be thorough
         o.L = nullptr;
         o.index = 0;
-        o.returncount = 0;
+        o.stacktop = 0;
         return *this;
     }
 
+    int push () const {
+        int pushcount = 0;
+        for (int i = index; i <= stacktop; ++i) {
+            lua_pushvalue(L, i);
+            pushcount += 1;
+        }
+        return pushcount;
+    }
+
     template<typename T>
-    decltype(auto) get() const {
-        return stack::get<T>(L, index);
+    decltype(auto) get(int start = 0) const {
+        return stack::get<T>(L, index + start);
+    }
+
+    stack_proxy operator[](int start) const {
+        return stack_proxy(L, index + start);
     }
 
     lua_State* lua_state() const { return L; };
     int stack_index() const { return index; };
+    int leftover_count() const { return stacktop - (index - 1); }
+    int top() const { return stacktop; }
+};
 
-    ~function_result() {
-        lua_pop(L, returncount);
+namespace stack {
+template <>
+struct getter<variadic_args> {
+    static variadic_args get(lua_State* L, int index = -1) {
+        return variadic_args(L, index);
     }
 };
 
 template <>
-struct bond_size<function_result> : std::integral_constant<std::size_t, SIZE_MAX> {};
-
-template <std::size_t I>
-stack_proxy get(const function_result& fr) {
-    return stack_proxy(fr.lua_state(), static_cast<int>(fr.stack_index() + I));
-}
+struct pusher<variadic_args> {
+    static int push(lua_State*, const variadic_args& ref) {
+        return ref.push();
+    }
+};
+} // stack
 } // sol
 
-#endif // SOL_FUNCTION_RESULT_HPP
+#endif // SOL_VARIADIC_ARGS_HPP

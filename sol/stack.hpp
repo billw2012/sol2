@@ -38,6 +38,13 @@
 namespace sol {
 namespace stack {
 namespace stack_detail {
+template <typename T>
+struct is_this_state_raw : std::false_type {};
+template <>
+struct is_this_state_raw<this_state> : std::true_type {};
+template <typename T>
+using is_this_state = is_this_state_raw<meta::Unqualified<T>>;
+
 template<typename T>
 inline int push_as_upvalues(lua_State* L, T& item) {
     typedef std::decay_t<T> TValue;
@@ -69,14 +76,18 @@ inline std::pair<T, int> get_as_upvalues(lua_State* L, int index = 1) {
 
 template <bool checkargs = default_check_arguments, std::size_t... I, typename R, typename... Args, typename Fx, typename... FxArgs, typename = std::enable_if_t<!std::is_void<R>::value>>
 inline decltype(auto) call(types<R>, types<Args...> ta, std::index_sequence<I...> tai, lua_State* L, int start, Fx&& fx, FxArgs&&... args) {
+    typedef meta::index_in_pack<this_state, Args...> state_index;
+    typedef meta::index_in_pack<variadic_args, Args...> va_pack_index;
     check_types<checkargs>{}.check(ta, tai, L, start, type_panic);
-    return fx(std::forward<FxArgs>(args)..., stack_detail::unchecked_get<Args>(L, start + I)...);
+    return fx(std::forward<FxArgs>(args)..., stack_detail::unchecked_get<Args>(L, start + I - static_cast<int>(state_index::value < I) - static_cast<int>(va_pack_index::value < I))...);
 }
 
 template <bool checkargs = default_check_arguments, std::size_t... I, typename... Args, typename Fx, typename... FxArgs>
 inline void call(types<void>, types<Args...> ta, std::index_sequence<I...> tai, lua_State* L, int start, Fx&& fx, FxArgs&&... args) {
+    typedef meta::index_in_pack<this_state, Args...> state_index;
+    typedef meta::index_in_pack<variadic_args, Args...> va_pack_index;
     check_types<checkargs>{}.check(ta, tai, L, start, type_panic);
-    fx(std::forward<FxArgs>(args)..., stack_detail::unchecked_get<Args>(L, start + I)...);
+    fx(std::forward<FxArgs>(args)..., stack_detail::unchecked_get<Args>(L, start + I - static_cast<int>(state_index::value < I) - static_cast<int>(va_pack_index::value < I))...);
 }
 } // stack_detail
 
@@ -104,7 +115,7 @@ inline void remove( lua_State* L, int index, int count ) {
 
 template <bool check_args = stack_detail::default_check_arguments, typename R, typename... Args, typename Fx, typename... FxArgs, typename = std::enable_if_t<!std::is_void<R>::value>>
 inline decltype(auto) call(types<R> tr, types<Args...> ta, lua_State* L, int start, Fx&& fx, FxArgs&&... args) {
-    typedef typename types<Args...>::indices args_indices;
+    typedef std::make_index_sequence<sizeof...(Args)> args_indices;
     return stack_detail::call<check_args>(tr, ta, args_indices(), L, start, std::forward<Fx>(fx), std::forward<FxArgs>(args)...);
 }
 
@@ -115,7 +126,7 @@ inline decltype(auto) call(types<R> tr, types<Args...> ta, lua_State* L, Fx&& fx
 
 template <bool check_args = stack_detail::default_check_arguments, typename... Args, typename Fx, typename... FxArgs>
 inline void call(types<void> tr, types<Args...> ta, lua_State* L, int start, Fx&& fx, FxArgs&&... args) {
-    typedef typename types<Args...>::indices args_indices;
+    typedef std::make_index_sequence<sizeof...(Args)> args_indices;
     stack_detail::call<check_args>(tr, ta, args_indices(), L, start, std::forward<Fx>(fx), std::forward<FxArgs>(args)...);
 }
 
@@ -137,7 +148,7 @@ inline void call_from_top(types<void> tr, types<Args...> ta, lua_State* L, Fx&& 
 template<int additionalpop = 0, bool check_args = stack_detail::default_check_arguments, typename... Args, typename Fx, typename... FxArgs>
 inline int call_into_lua(types<void> tr, types<Args...> ta, lua_State* L, int start, Fx&& fx, FxArgs&&... fxargs) {
     call<check_args>(tr, ta, L, start, std::forward<Fx>(fx), std::forward<FxArgs>(fxargs)...);
-    int nargs = static_cast<int>(sizeof...(Args)) + additionalpop;
+    int nargs = static_cast<int>(sizeof...(Args)) + additionalpop - meta::count_if_pack<stack_detail::is_this_state, Args...>::value;
     lua_pop(L, nargs);
     return 0;
 }
@@ -145,13 +156,13 @@ inline int call_into_lua(types<void> tr, types<Args...> ta, lua_State* L, int st
 template<int additionalpop = 0, bool check_args = stack_detail::default_check_arguments, typename Ret0, typename... Ret, typename... Args, typename Fx, typename... FxArgs, typename = std::enable_if_t<meta::Not<std::is_void<Ret0>>::value>>
 inline int call_into_lua(types<Ret0, Ret...>, types<Args...> ta, lua_State* L, int start, Fx&& fx, FxArgs&&... fxargs) {
     decltype(auto) r = call<check_args>(types<meta::return_type_t<Ret0, Ret...>>(), ta, L, start, std::forward<Fx>(fx), std::forward<FxArgs>(fxargs)...);
-    int nargs = static_cast<int>(sizeof...(Args)) + additionalpop;
+    int nargs = static_cast<int>(sizeof...(Args)) + additionalpop - meta::count_if_pack<stack_detail::is_this_state, Args...>::value;
     lua_pop(L, nargs);
-    return push(L, std::forward<decltype(r)>(r));
+    return push_reference(L, std::forward<decltype(r)>(r));
 }
 
-inline call_syntax get_call_syntax(lua_State* L, const std::string& meta) {
-    luaL_getmetatable(L, meta.c_str());
+inline call_syntax get_call_syntax(lua_State* L, const std::string& key) {
+    luaL_getmetatable(L, key.c_str());
     if (lua_compare(L, -1, -2, LUA_OPEQ) == 1) {
         lua_pop(L, 1);
         return call_syntax::colon;
