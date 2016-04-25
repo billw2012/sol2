@@ -191,7 +191,8 @@ TEST_CASE("table/traversal", "ensure that we can chain requests and tunnel down 
     sol::state lua;
     int begintop = 0, endtop = 0;
 
-    lua.script("t1 = {t2 = {t3 = 24}};");
+    sol::function scriptload = lua.load("t1 = {t2 = {t3 = 24}};");
+    scriptload();
     {
         test_stack_guard g(lua.lua_state(), begintop, endtop);
         int traversex24 = lua.traverse_get<int>("t1", "t2", "t3");
@@ -408,13 +409,13 @@ TEST_CASE("usertype/usertype-constructors", "Show that we can create classes fro
     lua.set_usertype(lc);
 
     lua.script(
-        "a = crapola_fuser.new(2)\n"
+        "a = fuser.new(2)\n"
         "u = a:add(1)\n"
         "v = a:add2(1)\n"
-        "b = crapola_fuser:new()\n"
+        "b = fuser:new()\n"
         "w = b:add(1)\n"
         "x = b:add2(1)\n"
-        "c = crapola_fuser.new(2, 3)\n"
+        "c = fuser.new(2, 3)\n"
         "y = c:add(1)\n"
         "z = c:add2(1)\n");
     sol::object a = lua.get<sol::object>("a");
@@ -615,6 +616,21 @@ TEST_CASE("usertype/member-variables", "allow table-like accessors to behave as 
                "local x = v.x\n"
                "assert(x == 3)\n"
                ));
+
+    struct breaks {
+        sol::function f;
+    };
+    
+    lua.open_libraries(sol::lib::base);
+    lua.set("b", breaks());
+    lua.new_usertype<breaks>("breaks",
+        "f", &breaks::f
+    );
+
+    breaks& b = lua["b"];
+    REQUIRE_NOTHROW(lua.script("b.f = function () print('BARK!') end"));
+    REQUIRE_NOTHROW(lua.script("b.f()"));
+    REQUIRE_NOTHROW(b.f());    
 }
 
 TEST_CASE("usertype/nonmember-functions", "let users set non-member functions that take unqualified T as first parameter to usertype") {
@@ -649,11 +665,13 @@ TEST_CASE("usertype/unique-shared-ptr", "manage the conversion and use of unique
     lua.set("sharedint", sharedint);
     std::unique_ptr<int64_t>& uniqueintref = lua["uniqueint"];
     std::shared_ptr<int64_t>& sharedintref = lua["sharedint"];
+    int64_t* rawuniqueintref = lua["uniqueint"];
+    int64_t* rawsharedintref = lua["sharedint"];
     int siusecount = sharedintref.use_count();
-    REQUIRE(uniqueintref != nullptr);
-    REQUIRE(sharedintref != nullptr);
-    REQUIRE(unique_value == *uniqueintref.get());
-    REQUIRE(unique_value == *sharedintref.get());
+    REQUIRE((uniqueintref.get() == rawuniqueintref && sharedintref.get() == rawsharedintref));
+    REQUIRE((uniqueintref != nullptr && sharedintref != nullptr && rawuniqueintref != nullptr && rawsharedintref != nullptr));
+    REQUIRE((unique_value == *uniqueintref.get() && unique_value == *sharedintref.get()));
+    REQUIRE((unique_value == *rawuniqueintref && unique_value == *rawsharedintref));
     REQUIRE(siusecount == sharedint.use_count());
     std::shared_ptr<int64_t> moreref = sharedint;
     REQUIRE(unique_value == *moreref.get());
@@ -894,6 +912,12 @@ TEST_CASE("usertype/readonly-and-static-functions", "Check if static functions c
 
         void func() {}
 
+        static void oh_boy() {}
+
+        static int oh_boy(std::string name) {
+            return name.length();
+        }
+
         int operator()(int x) {
             return x;
         }
@@ -907,8 +931,12 @@ TEST_CASE("usertype/readonly-and-static-functions", "Check if static functions c
         "something", something,
         "something2", [](int x, int y) { return x + y; },
         "func", &bark::func,
+        "oh_boy", sol::overload(sol::resolve<void()>(&bark::oh_boy), sol::resolve<int(std::string)>(&bark::oh_boy)),
         sol::meta_function::call_function, &bark::operator()
         );
+
+    lua.script("assert(bark.oh_boy('woo') == 3)");
+    lua.script("bark.oh_boy()");
 
     bark b;
     lua.set("b", &b);

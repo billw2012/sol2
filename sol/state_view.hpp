@@ -24,6 +24,7 @@
 
 #include "error.hpp"
 #include "table.hpp"
+#include "load_result.hpp"
 #include <memory>
 
 namespace sol {
@@ -128,12 +129,12 @@ public:
                 luaL_requiref(L, "debug", luaopen_debug, 1);
                 lua_pop(L, 1);
                 break;
-		  case lib::ffi:
+            case lib::ffi:
 #ifdef SOL_LUAJIT
                 luaL_requiref(L, "ffi", luaopen_ffi, 1);
 #endif
                 break;
-		  case lib::jit:
+            case lib::jit:
 #ifdef SOL_LUAJIT
                 luaL_requiref(L, "jit", luaopen_jit, 1);
 #endif
@@ -155,6 +156,16 @@ public:
         if(luaL_dofile(L, filename.c_str())) {
             lua_error(L);
         }
+    }
+
+    load_result load(const std::string& code) {
+        load_status x = static_cast<load_status>(luaL_loadstring(L, code.c_str()));
+        return load_result(L, -1, 1, 1, x);
+    }
+
+    load_result load_file(const std::string& filename) {
+        load_status x = static_cast<load_status>(luaL_loadfile(L, filename.c_str()));
+        return load_result(L, -1, 1, 1, x);
     }
 
     iterator begin () const {

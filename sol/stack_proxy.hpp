@@ -23,6 +23,8 @@
 #define SOL_STACK_PROXY_HPP
 
 #include "stack.hpp"
+#include "function.hpp"
+#include "protected_function.hpp"
 #include "proxy_base.hpp"
 
 namespace sol {
@@ -32,6 +34,7 @@ private:
     int index;
 
 public:
+    stack_proxy() : L(nullptr), index(0){}
     stack_proxy(lua_State* L, int index) : L(L), index(index) {}
 
     template<typename T>
@@ -46,6 +49,16 @@ public:
 
     lua_State* lua_state() const { return L; }
     int stack_index() const { return index; }
+
+    template<typename... Ret, typename... Args>
+    decltype(auto) call(Args&&... args) {
+        return get<function>().template call<Ret...>(std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    decltype(auto) operator()(Args&&... args) {
+        return call<>(std::forward<Args>(args)...);
+    }
 };
 
 namespace stack {
@@ -63,6 +76,22 @@ struct pusher<stack_proxy> {
     }
 };
 } // stack
+
+template <>
+struct tie_size<function_result> : std::integral_constant<std::size_t, SIZE_MAX> {};
+
+template <std::size_t I>
+stack_proxy get(const function_result& fr) {
+    return stack_proxy(fr.lua_state(), static_cast<int>(fr.stack_index() + I));
+}
+
+template <>
+struct tie_size<protected_function_result> : std::integral_constant<std::size_t, SIZE_MAX> {};
+
+template <std::size_t I>
+stack_proxy get(const protected_function_result& fr) {
+    return stack_proxy(fr.lua_state(), static_cast<int>(fr.stack_index() + I));
+}
 } // sol
 
 #endif // SOL_STACK_PROXY_HPP

@@ -26,7 +26,6 @@
 #include "tuple.hpp"
 #include "stack.hpp"
 #include "proxy_base.hpp"
-#include "stack_proxy.hpp"
 #include <cstdint>
 
 namespace sol {
@@ -74,7 +73,7 @@ private:
 
 public:
     protected_function_result() = default;
-    protected_function_result(lua_State* L, int index = -1, int returncount = 0, int popcount = 0, call_status error = call_status::ok): L(L), index(index), returncount(returncount), popcount(popcount), err(error) {
+    protected_function_result(lua_State* L, int index = -1, int returncount = 0, int popcount = 0, call_status err = call_status::ok): L(L), index(index), returncount(returncount), popcount(popcount), err(err) {
         
     }
     protected_function_result(const protected_function_result&) = default;
@@ -126,14 +125,6 @@ public:
         stack::remove(L, index, popcount);
     }
 };
-
-template <>
-struct bond_size<protected_function_result> : std::integral_constant<std::size_t, SIZE_MAX> {};
-
-template <std::size_t I>
-stack_proxy get(const protected_function_result& fr) {
-    return stack_proxy(fr.lua_state(), static_cast<int>(fr.stack_index() + I));
-}
 } // sol
 
-#endif // SOL_FUNCTION_RESULT_HPP
+#endif // SOL_PROTECTED_FUNCTION_RESULT_HPP

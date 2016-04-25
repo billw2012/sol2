@@ -17,15 +17,21 @@ Browse the various function and classes :doc:`Sol<../index>` utilizes to make yo
    protected_function
    object
    overload
+   property
    proxy
    reference
+   stack_reference
    resolve
    stack
    optional
    state
    table
+   this_state
    thread
+   tie
    types
    usertype
    userdata
    usertype_memory
+   unique_usertype_traits
+   variadic_args

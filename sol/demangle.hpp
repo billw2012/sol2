@@ -33,28 +33,23 @@
 
 namespace sol {
 namespace detail {
-#ifndef SOL_NO_RTTI
 #ifdef _MSC_VER
+#ifndef SOL_NO_RTTI
 inline std::string get_type_name(const std::type_info& id) {
-    return id.name();
-}
-
-#elif defined(__GNUC__) || defined(__clang__)
-inline std::string get_type_name(const std::type_info& id) {
-    int status;
-    char* unmangled = abi::__cxa_demangle(id.name(), 0, 0, &status);
-    std::string realname = unmangled;
-    std::free(unmangled);
+    std::string realname = id.name();
+    const static std::array<std::string, 2> removals = { { "struct ", "class " } };
+    for (std::size_t r = 0; r < removals.size(); ++r) {
+        auto found = realname.find(removals[r]);
+        while (found != std::string::npos) {
+            realname.erase(found, removals[r].size());
+            found = realname.find(removals[r]);
+        }
+    }
     return realname;
 }
-
-#else
-#error Compiler not supported for demangling
-#endif // compilers
-#else
-#ifdef _MSC_VER
+#endif // No RTII
 template <typename T>
-inline std::string get_type_name() {
+inline std::string ctti_get_type_name() {
     std::string name = __FUNCSIG__;
     std::size_t start = name.find("get_type_name");
     if (start == std::string::npos)
@@ -71,29 +66,13 @@ inline std::string get_type_name() {
         name.replace(0, 6, "", 0);
     if (name.find("class", 0) == 0)
         name.replace(0, 5, "", 0);
-    while (name.size() > 0 && std::isblank(name.front())) name.erase(name.begin(), ++name.begin());
-    while (name.size() > 0 && std::isblank(name.back())) name.erase(--name.end(), name.end());
+    while (!name.empty() && std::isblank(name.front())) name.erase(name.begin(), ++name.begin());
+    while (!name.empty() && std::isblank(name.back())) name.erase(--name.end(), name.end());
     return name;
 }
-
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__clang__)
 template <typename T>
-inline std::string get_type_name() {
-    std::string name = __PRETTY_FUNCTION__;
-    std::size_t start = name.find_first_of('=');
-    std::size_t end = name.find_last_of(';');
-    if (end == std::string::npos)
-        end = name.size();
-    if (start == std::string::npos)
-        start = 0;
-    if (start < name.size() - 1)
-        start += 2;
-    name = name.substr(start, end - start - 1);
-    return name;
-}
-#elif defined(__clang__)
-template <typename T>
-inline std::string get_type_name() {
+inline std::string ctti_get_type_name() {
     std::string name = __PRETTY_FUNCTION__;
     std::size_t start = name.find_last_of('[');
     start = name.find_first_of('=', start);
@@ -104,45 +83,67 @@ inline std::string get_type_name() {
         start = 0;
     if (start < name.size() - 1)
         start += 1;
-    name = name.substr(start, end - start - 1);
+    name = name.substr(start, end - start);
+    start = name.find(";");
+    if (start != std::string::npos) {
+        name.erase(start, name.length());
+    }
+    while (!name.empty() && std::isblank(name.front())) name.erase(name.begin(), ++name.begin());
+    while (!name.empty() && std::isblank(name.back())) name.erase(--name.end(), name.end());
     return name;
 }
+#ifndef SOL_NO_RTTI
+#if defined(__clang__)
+inline std::string get_type_name(const std::type_info& id) {
+    int status;
+    char* unmangled = abi::__cxa_demangle(id.name(), 0, 0, &status);
+    std::string realname = unmangled;
+    std::free(unmangled);
+    return realname;
+}
+#elif defined(__GNUC__)
+inline std::string get_type_name(const std::type_info& id) {
+    int status;
+    char* unmangled = abi::__cxa_demangle(id.name(), 0, 0, &status);
+    std::string realname = unmangled;
+    std::free(unmangled);
+    return realname;
+}
+#endif // g++ || clang++
+#endif // No RTII
 #else
 #error Compiler not supported for demangling
 #endif // compilers
-#endif // No Runtime Type information
 
 template <typename T>
 inline std::string demangle_once() {
 #ifndef SOL_NO_RTTI
     std::string realname = get_type_name(typeid(T));
 #else
-    std::string realname = get_type_name<T>();
+    std::string realname = ctti_get_type_name<T>();
 #endif // No Runtime Type Information
-    const static std::array<std::string, 2> removals = {{ "struct ", "class " }};
-    const static std::array<std::string, 2> replacements = {{ "::", "_" }};
-    for(std::size_t r = 0; r < removals.size(); ++r) {
-        auto found = realname.find(removals[r]);
-        while(found != std::string::npos) {
-            realname.erase(found, removals[r].size());
-            found = realname.find(removals[r]);
-       }
-    }
+    return realname;
+}
 
-    for(std::size_t r = 0; r < replacements.size(); r+=2) {
-        auto found = realname.find(replacements[r]);
-        while(found != std::string::npos) {
-            realname.replace(found, replacements[r].size(), replacements[r + 1]);
-            found = realname.find(replacements[r], found);
-        }
+template <typename T>
+inline std::string short_demangle_once() {
+    std::string realname = ctti_get_type_name<T>();
+    std::size_t idx = realname.find_last_of(":`'\"{}[]|-)(*^&!@#$%`~", std::string::npos, 23);
+    if (idx != std::string::npos) {
+        realname.erase(0, realname.length() < idx ? realname.length() : idx + 1);
     }
-
     return realname;
 }
 
 template <typename T>
 inline std::string demangle() {
     static const std::string d = demangle_once<T>();
+    return d;
+}
+
+template <typename T>
+inline std::string short_demangle() {
+    static const std::string d = short_demangle_once<T>();
     return d;
 }
 } // detail
