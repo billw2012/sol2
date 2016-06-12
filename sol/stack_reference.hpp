@@ -35,6 +35,7 @@ protected:
 
 public:
     stack_reference() noexcept = default;
+    stack_reference(nil_t) noexcept : stack_reference() {};
     stack_reference(lua_State* L, int i) noexcept : L(L), index(lua_absindex(L, i)) {}
     stack_reference(stack_reference&& o) noexcept = default;
     stack_reference& operator=(stack_reference&&) noexcept = default;
@@ -68,6 +69,14 @@ public:
         return t != type::nil && t != type::none;
     }
 };
+
+inline bool operator== (const stack_reference& l, const stack_reference& r) {
+    return lua_compare(l.lua_state(), l.stack_index(), r.stack_index(), LUA_OPEQ) == 0;
+}
+
+inline bool operator!= (const stack_reference& l, const stack_reference& r) {
+    return !operator==(l, r);
+}
 } // sol
 
 #endif // SOL_STACK_REFERENCE_HPP

@@ -41,7 +41,8 @@ struct field_getter {
 template <bool b, typename C>
 struct field_getter<metatable_key_t, b, C> {
     void get(lua_State* L, metatable_key_t, int tableindex = -1) {
-        lua_getmetatable( L, tableindex );
+        if (lua_getmetatable(L, tableindex) == 0)
+            push(L, nil);
     }
 };
 
@@ -166,14 +167,14 @@ template <typename... Args, bool b, typename C>
 struct field_setter<std::tuple<Args...>, b, C> {
     template <bool g, std::size_t I, typename Key, typename Value>
     void apply(std::index_sequence<I>, lua_State* L, Key&& keys, Value&& value, int tableindex) {
-        I > 0 ? 
-            set_field<g>(L, detail::forward_get<I>(keys), std::forward<Value>(value)) :
-            set_field<g>(L, detail::forward_get<I>(keys), std::forward<Value>(value), tableindex);
+        I < 1 ? 
+            set_field<g>(L, detail::forward_get<I>(keys), std::forward<Value>(value), tableindex) :
+            set_field<g>(L, detail::forward_get<I>(keys), std::forward<Value>(value));
     }
 
     template <bool g, std::size_t I0, std::size_t I1, std::size_t... I, typename Keys, typename Value>
     void apply(std::index_sequence<I0, I1, I...>, lua_State* L, Keys&& keys, Value&& value, int tableindex) {
-        get_field<g>(L, detail::forward_get<I0>(keys), tableindex);
+        I0 < 1 ? get_field<g>(L, detail::forward_get<I0>(keys), tableindex) : get_field<g>(L, detail::forward_get<I0>(keys), -1);
         apply<false>(std::index_sequence<I1, I...>(), L, std::forward<Keys>(keys), std::forward<Value>(value), -1);
     }
 

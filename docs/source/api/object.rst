@@ -15,11 +15,13 @@ members
 -------
 
 .. code-block:: cpp
-    :caption: constructor: coroutine
+    :caption: overloaded constructor: object
 
-    coroutine(lua_State* L, int index = -1);
+    template <typename T>
+    object(T&&);
+    object(lua_State* L, int index = -1);
 
-Create an object which references the specific element at the given index in the specified ``lua_State*``.
+There are 2 kinds of constructors here. One allows construction of a object from other reference types such as :doc:`table<table>` and :doc:`stack_reference`. The other creates an object which references the specific element at the given index in the specified ``lua_State*``.
 
 .. code-block:: cpp
 	:caption: function: type conversion
@@ -50,3 +52,22 @@ non-members
 	bool operator!=(const nil_t&, const object& rhs);
 
 These allow a person to compare an ``sol::object`` against :ref:`nil<nil>`, which essentially checks if an object references a non-nil value, like so:
+
+.. code-block:: cpp
+
+	if (myobj == sol::nil) {
+		// doesn't have anything...
+	}
+
+Use this to check objects.
+
+.. code-block:: cpp
+	:caption: function: make object
+	:name: make-object
+
+	template <typename T>
+	object make_object(lua_State* L, T&& value);
+	template <typename T, typename... Args>
+	object make_object(lua_State* L, Args&&... args);
+
+Makes an object out of the value. It pushes it onto the stack, then pops it into the returned ``sol::object``.

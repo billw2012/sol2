@@ -68,8 +68,10 @@ public:
     basic_function() = default;
     basic_function(const basic_function&) = default;
     basic_function& operator=(const basic_function&) = default;
-    basic_function(basic_function&& ) = default;
-    basic_function& operator=(basic_function&& ) = default;
+    basic_function(basic_function&&) = default;
+    basic_function& operator=(basic_function&&) = default;
+    basic_function(const stack_reference& r) : basic_function(r.lua_state(), r.stack_index()) {}
+    basic_function(stack_reference&& r) : basic_function(r.lua_state(), r.stack_index()) {}
     basic_function(lua_State* L, int index = -1): base_t(L, index) {
 #ifdef SOL_CHECK_ARGUMENTS
         stack::check<basic_function>(L, index, type_panic);
@@ -89,7 +91,7 @@ public:
     template<typename... Ret, typename... Args>
     decltype(auto) call( Args&&... args ) const {
         base_t::push( );
-        int pushcount = stack::multi_push( base_t::lua_state( ), std::forward<Args>( args )... );
+        int pushcount = stack::multi_push_reference( base_t::lua_state( ), std::forward<Args>( args )... );
         return invoke( types<Ret...>( ), std::make_index_sequence<sizeof...(Ret)>(), pushcount );
     }
 };

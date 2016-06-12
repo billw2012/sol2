@@ -50,8 +50,8 @@ private:
     table reg;
     global_table global;
 public:
-    typedef typename global_table::iterator iterator;
-    typedef typename global_table::const_iterator const_iterator;
+    typedef global_table::iterator iterator;
+    typedef global_table::const_iterator const_iterator;
 
     state_view(lua_State* L):
     L(L),
@@ -165,6 +165,11 @@ public:
 
     load_result load_file(const std::string& filename) {
         load_status x = static_cast<load_status>(luaL_loadfile(L, filename.c_str()));
+        return load_result(L, -1, 1, 1, x);
+    }
+
+    load_result load_buffer(const char *buff, size_t size, const char *name, const char* mode = nullptr) {
+        load_status x = static_cast<load_status>(luaL_loadbufferx(L, buff, size, name, mode));
         return load_result(L, -1, 1, 1, x);
     }
 

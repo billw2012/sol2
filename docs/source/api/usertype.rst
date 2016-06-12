@@ -31,7 +31,7 @@ While other frameworks extend lua's syntax or create Data Structure Languages (D
 		}
 	};
 
-You can bind the it to lua using the following C++ code:
+You can bind the it to Lua using the following C++ code:
 
 .. code-block:: cpp
 	:linenos:
@@ -80,7 +80,9 @@ Note that here, because the C++ class is default-constructible, it will automati
 	:linenos:
 
 	fwoosh = ship.new()
-	local success = fwoosh:shoot() -- note the ":" that is there: this is mandatory for member function calls
+	-- note the ":" that is there: this is mandatory for member function calls
+	-- ":" means "pass self" in Lua
+	local success = fwoosh:shoot()
 	local is_dead = fwoosh:hit(20)
 	-- check if it works
 	print(is_dead) -- the ship is not dead at this point
@@ -149,6 +151,10 @@ The constructor of usertype takes a variable number of arguments. It takes an ev
 * ``"{name}", sol::initializers( func1, func2, ... )``
     - Creates initializers that, given one or more functions, provides an overloaded lua function for creating a the specified type.
 	   + The function must have the argument signature ``func( T*, Arguments... )`` or ``func( T&, Arguments... )``, where the pointer or reference will point to a place of allocated memory that has an uninitialized ``T``. Note that lua controls the memory.
+* ``"{name}", sol::no_constructor``
+    - Specifically tells Sol not to create a `.new()` if one is not specified and the type is default-constructible.
+* ``sol::call_constructor, {any constructor type}``
+    - Specifies a function that makes the call turn into ``{usertype-name}( ... constructor arguments ... )``. This is compatible with luabind syntax.
 
 .. _destructor:
 
@@ -193,7 +199,7 @@ You do not need to manually specify the base classes. We use a technique that in
 
 **With Exceptions Disabled**
 
-You must specify the ``sol::base_classes`` tag with the ``sol::bases<Types...>()`` argument, where ``Types...`` are all the base classes of the single type ``T`` that you are making a usertype out of. when you create the usertype. If you turn exceptions off and are also completely mad and turn off :doc:`run-time type information<../rtti>` as well, we fallback to a id-based  systemthat still requires you to specifically list the base classes as well. For example:
+You must specify the ``sol::base_classes`` tag with the ``sol::bases<Types...>()`` argument, where ``Types...`` are all the base classes of the single type ``T`` that you are making a usertype out of. If you turn exceptions off and are also completely mad and turn off :doc:`run-time type information<../rtti>` as well, we fallback to a id-based  systemthat still requires you to specifically list the base classes as well. For example:
 
 .. code-block:: cpp
 	:linenos:
@@ -226,7 +232,7 @@ Note that Sol does not support down-casting from a base class to a derived class
 inheritance + overloading
 -------------------------
 
-While overloading is supported regardless of `inheritance<inheritance>` caveats or not, the current version of Sol has a first-match, first-call style of overloading when it comes to inheritance. Put the functions with the most derived arguments first to get the kind of matching you expect.
+While overloading is supported regardless of inheritance caveats or not, the current version of Sol has a first-match, first-call style of overloading when it comes to inheritance. Put the functions with the most derived arguments first to get the kind of matching you expect or cast inside of an intermediary C++ function and call the function you desire.
 
 traits
 ------
@@ -251,4 +257,4 @@ performance note
 
 .. note::
 
-	Note that performance for member function calls goes down by a fixed overhead if you also bind variables as well as member functions. This is purely a limitation of the lua implementation and there's, unfortunately, nothing that can be done about it. If you bind only functions and no variables, however, Sol will automatically optimize the Lua runtime and give you the maximum performance possible. *Please consider ease of use and maintenance of code before you make everything into functions.*
+	Note that performance for member function calls goes down by a fixed overhead if you also bind variables as well as member functions. This is purely a limitation of the Lua implementation and there is, unfortunately, nothing that can be done about it. If you bind only functions and no variables, however, Sol will automatically optimize the Lua runtime and give you the maximum performance possible. *Please consider ease of use and maintenance of code before you make everything into functions.*

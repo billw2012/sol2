@@ -89,7 +89,8 @@ class basic_table_core : public base_t {
         auto pp = stack::push_pop<top_level && (is_global<decltype(detail::forward_get<I * 2>(pairs))...>::value)>(*this);
         void(detail::swallow{ (stack::set_field<top_level>(base_t::lua_state(), 
             detail::forward_get<I * 2>(pairs),
-            detail::forward_get<I * 2 + 1>(pairs)
+            detail::forward_get<I * 2 + 1>(pairs),
+            lua_gettop(base_t::lua_state())
         ), 0)... });
     }
 
@@ -107,16 +108,17 @@ class basic_table_core : public base_t {
 
     template <bool global, typename T, std::size_t I, typename Key>
     decltype(auto) traverse_get_deep_optional( int& popcount, Key&& key ) const {
-        auto p = stack::probe_get_field<global>(base_t::lua_state(), std::forward<Key>(key), -1);
+        typedef decltype(stack::get<T>(base_t::lua_state())) R;
+        auto p = stack::probe_get_field<global>(base_t::lua_state(), std::forward<Key>(key), lua_gettop(base_t::lua_state()));
         popcount += p.levels;
         if (!p.success)
-            return T(nullopt);
+            return R(nullopt);
         return stack::get<T>( base_t::lua_state( ) );
     }
 
     template <bool global, typename T, std::size_t I, typename Key, typename... Keys>
     decltype(auto) traverse_get_deep_optional( int& popcount, Key&& key, Keys&&... keys ) const {
-        auto p = I > 0 ? stack::probe_get_field<global>(base_t::lua_state(), std::forward<Key>(key), - 1) : stack::probe_get_field<global>( base_t::lua_state( ), std::forward<Key>( key ) );
+        auto p = I > 0 ? stack::probe_get_field<global>(base_t::lua_state(), std::forward<Key>(key), -1) : stack::probe_get_field<global>( base_t::lua_state( ), std::forward<Key>( key ), lua_gettop(base_t::lua_state()));
         popcount += p.levels;
         if (!p.success)
             return T(nullopt);
@@ -154,7 +156,12 @@ public:
     typedef iterator const_iterator;
 
     basic_table_core( ) noexcept : base_t( ) { }
-    basic_table_core( const table_core<true>& global ) noexcept : base_t( global ) { }
+    template <typename T, meta::EnableIf<meta::Bool<!top_level>, meta::Not<std::is_same<meta::Unqualified<T>, basic_table_core>>, std::is_same<meta::Unqualified<T>, global_table>> = 0>
+    basic_table_core( T&& r ) noexcept : base_t( std::forward<T>(r) ) { }
+    basic_table_core(const basic_table_core&) = default;
+    basic_table_core(basic_table_core&&) = default;
+    basic_table_core& operator=(const basic_table_core&) = default;
+    basic_table_core& operator=(basic_table_core&&) = default;
     basic_table_core(const stack_reference& r) : basic_table_core(r.lua_state(), r.stack_index()) {}
     basic_table_core(stack_reference&& r) : basic_table_core(r.lua_state(), r.stack_index()) {}
     basic_table_core( lua_State* L, int index = -1 ) : base_t( L, index ) {

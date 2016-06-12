@@ -55,8 +55,9 @@ private:
                 target.push();
             }
         }
+        bool valid () const { return stackindex > 0;}
         ~handler() {
-            if (stackindex > 0) {
+            if (valid()) {
                 lua_remove(target.lua_state(), stackindex);
             }
         }
@@ -133,10 +134,12 @@ public:
     basic_protected_function() = default;
     basic_protected_function(const basic_protected_function&) = default;
     basic_protected_function& operator=(const basic_protected_function&) = default;
-    basic_protected_function(basic_protected_function&& ) = default;
+    basic_protected_function(basic_protected_function&&) = default;
     basic_protected_function& operator=(basic_protected_function&& ) = default;
     basic_protected_function(const basic_function<base_t>& b) : base_t(b) {}
     basic_protected_function(basic_function<base_t>&& b) : base_t(std::move(b)) {}
+    basic_protected_function(const stack_reference& r) : basic_protected_function(r.lua_state(), r.stack_index()) {}
+    basic_protected_function(stack_reference&& r) : basic_protected_function(r.lua_state(), r.stack_index()) {}
     basic_protected_function(lua_State* L, int index = -1) : base_t(L, index), error_handler(get_default_handler()) {
 #ifdef SOL_CHECK_ARGUMENTS
         stack::check<basic_protected_function>(L, index, type_panic);
@@ -157,7 +160,7 @@ public:
     decltype(auto) call(Args&&... args) const {
         handler h(error_handler);
         base_t::push();
-        int pushcount = stack::multi_push(base_t::lua_state(), std::forward<Args>(args)...);
+        int pushcount = stack::multi_push_reference(base_t::lua_state(), std::forward<Args>(args)...);
         return invoke(types<Ret...>(), std::make_index_sequence<sizeof...(Ret)>(), pushcount, h);
     }
 };
