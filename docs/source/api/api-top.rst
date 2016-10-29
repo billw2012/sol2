@@ -1,4 +1,3 @@
-
 api reference manual
 ====================
 
@@ -8,31 +7,40 @@ Browse the various function and classes :doc:`Sol<../index>` utilizes to make yo
 .. toctree::
    :caption: Sol API
    :name: apitoc
-   :maxdepth: 1
+   :maxdepth: 2
 
-   compatibility
-   coroutine
-   error
-   function
-   protected_function
-   object
-   overload
-   property
-   proxy
-   reference
-   stack_reference
-   resolve
-   stack
-   optional
    state
    table
-   metatable_key
-   this_state
-   thread
-   tie
-   types
+   proxy
+   as_table
    usertype
-   userdata
+   simple_usertype
    usertype_memory
    unique_usertype_traits
+   tie
+   function
+   protected_function
+   coroutine
+   error
+   object
+   userdata
+   reference
+   thread
+   stack_reference
+   make_reference
+   optional
+   this_state
    variadic_args
+   overload
+   property
+   var
+   protect
+   readonly
+   as_function
+   c_call
+   resolve
+   stack
+   user
+   compatibility
+   types
+   metatable_key

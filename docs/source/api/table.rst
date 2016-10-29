@@ -48,12 +48,9 @@ These functions retrieve items from the table. The first one (``get``) can pull 
 
 If the keys within nested queries try to traverse into a table that doesn't exist, the second lookup into the nil-returned variable and belong will cause a panic to be fired by the lua C API. If you need to check for keys, check with ``auto x = table.get<sol::optional<int>>( std::tie("a", "b", "c" ) );``, and then use the :doc:`optional<optional>` interface to check for errors. As a short-hand, easy method for returning a default if a value doesn't exist, you can use ``get_or`` instead.
 
-.. note::
-
-	Value semantics are applied to all set operations. If you do not ``std::ref( obj )`` or specifically make a pointer with ``std::addressof( obj )`` or ``&obj``, it will copy / move. This is different from how :doc:`sol::function<function>` behaves with its call operator.
-
 .. code-block:: cpp
 	:caption: function: set / traversing set
+	:name: set-value
 
 	template<typename... Args>
 	table& set(Args&&... args);
@@ -61,11 +58,38 @@ If the keys within nested queries try to traverse into a table that doesn't exis
 	template<typename... Args>
 	table& traverse_set(Args&&... args);
 
-These functions set items into the table. The first one (``set``) can set  *multiple* values, in the form ``Key, Value, Key, Value, ...``. It is similar to ``table["a"] = 1; table["b"] = 2, ...``. The second one (``traverse_set``) sets a *single* value, using all but the last argument as keys to do another lookup into the value retrieved prior to it. It is equivalent to ``table["a"]["b"][...] = final_value;``.
+These functions set items into the table. The first one (``set``) can set  *multiple* values, in the form ``key_a, value_a, key_b, value_b, ...``. It is similar to ``table[key_a] = value_a; table[key_b] = value_b, ...``. The second one (``traverse_set``) sets a *single* value, using all but the last argument as keys to do another lookup into the value retrieved prior to it. It is equivalent to ``table[key_a][key_b][...] = value;``.
 
 .. note::
 
 	Value semantics are applied to all set operations. If you do not ``std::ref( obj )`` or specifically make a pointer with ``std::addressof( obj )`` or ``&obj``, it will copy / move. This is different from how :doc:`sol::function<function>` behaves with its call operator.
+
+.. code-block:: cpp
+	:caption: function: set a function with the specified key into lua
+	:name: set-function
+
+	template<typename Key, typename Fx>
+	state_view& set_function(Key&& key, Fx&& fx, [...]);
+
+Sets the desired function to the specified key value. Note that it also allows for passing a member function plus a member object or just a single member function: however, using a lambda is almost always better when you want to bind a member function + class instance to a single function call in Lua.
+
+.. code-block:: cpp
+	:caption: function: add
+
+	template<typename... Args>
+	table& add(Args&&... args);
+
+This function appends a value to a table. The definition of appends here is only well-defined for a table which has a perfectly sequential (and integral) ordering of numeric keys with associated non-null values (the same requirement for the :ref:`size<size-function>` function). Otherwise, this falls to the implementation-defined behavior of your Lua VM, whereupon is may add keys into empty 'holes' in the array (e.g., the first empty non-sequential integer key it gets to from ``size``) or perhaps at the very "end" of the "array". Do yourself the favor of making sure your keys are sequential.
+
+Each argument is appended to the list one at a time.
+
+.. code-block:: cpp
+	:caption: function: size
+	:name: size-function
+
+	std::size_t size() const;
+
+This function returns the size of a table. It is only well-defined in the case of a Lua table which has a perfectly sequential (and integral) ordering of numeric keys with associated non-null values.
 	
 .. code-block:: cpp
 	:caption: function: setting a usertype
@@ -79,6 +103,28 @@ These functions set items into the table. The first one (``set``) can set  *mult
 	table& new_usertype(const std::string& name, constructors<CArgs...> ctor, Args&&... args);
 
 This class of functions creates a new :doc:`usertype<usertype>` with the specified arguments, providing a few extra details for constructors. After creating a usertype with the specified argument, it passes it to :ref:`set_usertype<set_usertype>`.
+	
+.. code-block:: cpp
+	:caption: function: setting a simple usertype
+	:name: new-simple-usertype
+
+	template<typename Class, typename... Args>
+	table& new_simple_usertype(const std::string& name, Args&&... args);
+	template<typename Class, typename CTor0, typename... CTor, typename... Args>
+	table& new_simple_usertype(const std::string& name, Args&&... args);
+	template<typename Class, typename... CArgs, typename... Args>
+	table& new_simple_usertype(const std::string& name, constructors<CArgs...> ctor, Args&&... args);
+
+This class of functions creates a new :doc:`simple usertype<simple_usertype>` with the specified arguments, providing a few extra details for constructors and passing the ``sol::simple`` tag as well. After creating a usertype with the specified argument, it passes it to :ref:`set_usertype<set_usertype>`.
+	
+.. code-block:: cpp
+	:caption: function: creating an enum
+	:name: new-enum
+
+	template<bool read_only = true, typename... Args>
+	basic_table_core& new_enum(const std::string& name, Args&&... args);
+	
+Use this function to create an enumeration type in Lua. By default, the enum will be made read-only, which creates a tiny performance hit to make the values stored in this table behave exactly like a read-only enumeration in C++. If you plan on changing the enum values in Lua, set the ``read_only`` template parameter in your ``new_enum`` call to false. The arguments are expected to come in ``key, value, key, value, ...`` list. 
 
 .. _set_usertype:
 
@@ -122,14 +168,6 @@ A functional ``for_each`` loop that calls the desired function. The passed in fu
 	proxy<const table&, T> operator[](T&& key) const;
 
 Generates a :doc:`proxy<proxy>` that is templated on the table type and the key type. Enables lookup of items and their implicit conversion to a desired type.
-
-.. code-block:: cpp
-	:caption: function: set a function with the specified key into lua
-
-	template<typename Key, typename Fx>
-	state_view& set_function(Key&& key, Fx&& fx, [...]);
-
-Sets the desired function to the specified key value. Note that it also allows for passing a member function plus a member object or just a single member function: however, using a lambda is almost always better when you want to bind a member function + class instance to a single function call in Lua.
 
 .. code-block:: cpp
 	:caption: function: create a table with defaults

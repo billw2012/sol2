@@ -41,7 +41,7 @@ The following C++ code will call this function from this file and retrieve the r
 
 The call ``woof(20)`` generates a :ref:`function_result<function-result>`, which is then implicitly converted to an ``double`` after being called. The intermediate temporary ``function_result`` is then destructed, popping the Lua function call results off the Lua stack. 
 
-You can also return multiple values by using std::tuple, or if you need to bind them to pre-existing variables use ``sol::bond``:
+You can also return multiple values by using ``std::tuple``, or if you need to bind them to pre-existing variables use ``sol::tie``:
 
 .. code-block:: cpp
 	:linenos:
@@ -54,9 +54,9 @@ You can also return multiple values by using std::tuple, or if you need to bind 
 	std::tuple<int, int, int> abc = f(); // 10, 11, 12 from Lua
 	// or
 	int a, b, c;
-	sol::bond(a, b, c) = f(); // a = 10, b = 11, c = 12 from Lua
+	sol::tie(a, b, c) = f(); // a = 10, b = 11, c = 12 from Lua
 
-This makes it much easier to work with multiple return values. Using ``std::tie`` from the C++ standard will result in dangling references or bad behavior because of the very poor way in which C++ tuples were implemented: please use ``sol::bond( ... )`` instead to satisfy any multi-return needs.
+This makes it much easier to work with multiple return values. Using ``std::tie`` from the C++ standard will result in dangling references or bad behavior because of the very poor way in which C++ tuples/``std::tie`` were specified and implemented: please use ``sol::tie( ... )`` instead to satisfy any multi-return needs.
 
 .. _function-result-warning:
 
@@ -81,6 +81,17 @@ Calls the function. The second ``operator()`` lets you specify the templated ret
 .. note::
 
 	All arguments are forwarded. Unlike :doc:`get/set/operator[] on sol::state<state>` or :doc:`sol::table<table>`, value semantics are not used here. It is forwarding reference semantics, which do not copy/move unless it is specifically done by the receiving functions / specifically done by the user.
+
+
+.. _function-argument-handling:
+
+.. note::
+
+	This also means that you should pass and receive arguments in certain ways to maximize efficiency. For example, ``sol::table``, ``sol::object``, ``sol::userdata`` and friends are fairly cheap to copy, and should simply by taken as values. This includes primitive types like ``int`` and ``double``. However, C++ types -- if you do not want copies -- should be taken as ``const type&`` or ``type&``, to save on copies if it's important. Note that taking references from Lua also means you can modify the data inside of Lua directly, so be careful. Lua by default deals with things mostly by reference (save for primitive types).
+
+	You can get even more speed out of ``sol::object`` style of types by taking a ``sol::stack_object`` (or ``sol::stack_...``, where ``...`` is ``userdata``, ``reference``, ``table``, etc.). These reference a stack position directly rather than cheaply/safely the internal Lua reference to make sure it can't be swept out from under you. Note that if you manipulate the stack out from under these objects, they may misbehave, so please do not blow up your Lua stack when working with these types.
+
+	``std::string`` (and ``std::wstring``) are special. Lua stores strings as ``const char*`` null-terminated strings. ``std::string`` will copy, so taking a ``std::string`` by value or by const reference still invokes a copy operation. You can take a ``const char*``, but that will mean you're exposed to what happens on the Lua stack (if you change it and start chopping off function arguments from it in your function calls and such, as warned about previously).
 
 
 function call safety

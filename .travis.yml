@@ -1,7 +1,26 @@
 language: cpp
+sudo: required
+dist: trusty
 
 git:
     depth: 5
+
+before_install:
+- source ./install.deps.sh
+
+install:
+- install_os_deps
+
+script:
+- echo "Configuration info:"
+- export_compiler_vars
+- ninja --version
+- ./bootstrap.py --ci && ninja
+
+notifications:
+    email:
+        on_success: change
+        on_failure: change
 
 matrix:
   include: 
@@ -62,43 +81,83 @@ matrix:
 
     # clang
     - os: linux
-      env: COMPILER=clang++-3.5 LUA_VERSION=lua52
+      env:
+        - LLVM_VERSION=3.5.0
+        - LLVM_ARCHIVE_PATH=$HOME/clang+llvm.tar.xz
+        - COMPILER=clang++
+        - CPPFLAGS="-I $HOME/clang-$LLVM_VERSION/include/c++/v1"
+        - CXXFLAGS=-lc++
+        - PATH=$HOME/clang-$LLVM_VERSION/bin:$PATH
+        - LD_LIBRARY_PATH=$HOME/clang-$LLVM_VERSION/lib:$LD_LIBRARY_PATH
+        - LUA_VERSION=lua52
+      before_install:
+       - wget http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz -O $LLVM_ARCHIVE_PATH
+       - mkdir $HOME/clang-$LLVM_VERSION
+       - tar xf $LLVM_ARCHIVE_PATH -C $HOME/clang-$LLVM_VERSION --strip-components 1
+       - export PATH=$HOME/clang+llvm/bin:$PATH
+       - source ./install.deps.sh
       compiler: clang
       addons:
         apt:
           sources:
           - ubuntu-toolchain-r-test
-          - llvm-toolchain-precise-3.5
           packages:
           - gcc-4.9
           - g++-4.9
-          - clang-3.5
           - ninja-build
           - liblua5.2-dev
 
     - os: linux
-      env: COMPILER=clang++-3.6 LUA_VERSION=lua52
+      env:
+        - LLVM_VERSION=3.6.0
+        - LLVM_ARCHIVE_PATH=$HOME/clang+llvm.tar.xz
+        - COMPILER=clang++
+        - CPPFLAGS="-I $HOME/clang-$LLVM_VERSION/include/c++/v1"
+        - CXXFLAGS=-lc++
+        - PATH=$HOME/clang-$LLVM_VERSION/bin:$PATH
+        - LD_LIBRARY_PATH=$HOME/clang-$LLVM_VERSION/lib:$LD_LIBRARY_PATH
+        - LUA_VERSION=lua52
+      before_install:
+       - wget http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz -O $LLVM_ARCHIVE_PATH
+       - mkdir $HOME/clang-$LLVM_VERSION
+       - tar xf $LLVM_ARCHIVE_PATH -C $HOME/clang-$LLVM_VERSION --strip-components 1
+       - export PATH=$HOME/clang+llvm/bin:$PATH
+       - source ./install.deps.sh
       compiler: clang
       addons:
         apt:
           sources:
           - ubuntu-toolchain-r-test
-          - llvm-toolchain-precise-3.6
           packages:
-          - clang-3.6
+          - gcc-4.9
+          - g++-4.9
           - ninja-build
           - liblua5.2-dev
 
     - os: linux
-      env: COMPILER=clang++-3.6 LUA_VERSION=luajit51
+      env:
+        - LLVM_VERSION=3.6.0
+        - LLVM_ARCHIVE_PATH=$HOME/clang+llvm.tar.xz
+        - COMPILER=clang++
+        - CPPFLAGS="-I $HOME/clang-$LLVM_VERSION/include/c++/v1"
+        - CXXFLAGS=-lc++
+        - PATH=$HOME/clang-$LLVM_VERSION/bin:$PATH
+        - LD_LIBRARY_PATH=$HOME/clang-$LLVM_VERSION/lib:$LD_LIBRARY_PATH
+        - LUA_VERSION=luajit51
+      before_install:
+       - wget http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz -O $LLVM_ARCHIVE_PATH
+       - mkdir $HOME/clang-$LLVM_VERSION
+       - tar xf $LLVM_ARCHIVE_PATH -C $HOME/clang-$LLVM_VERSION --strip-components 1
+       - export PATH=$HOME/clang+llvm/bin:$PATH
+       - source ./install.deps.sh
       compiler: clang
       addons:
         apt:
           sources:
           - ubuntu-toolchain-r-test
-          - llvm-toolchain-precise-3.6
           packages:
-          - clang-3.6
+          - gcc-4.9
+          - g++-4.9
           - ninja-build
           - libluajit-5.1-dev
 
@@ -114,26 +173,14 @@ matrix:
 
     - os: osx
       osx_image: xcode7
+      compiler: gcc
+      env: COMPILER=g++-5 LUA_VERSION=luajit
+
+    - os: osx
+      osx_image: xcode7
       compiler: clang
       env: COMPILER=appleclang LUA_VERSION=lua53
 
   allow_failures:
     - os: osx
       compiler: clang 
-
-before_install:
-- source ./install.deps.sh
-
-install:
-- install_os_deps
-
-script:
-- echo "Configuration info:"
-- export_compiler_vars
-- ninja --version
-- ./bootstrap.py --ci && ninja && ninja examples
-
-notifications:
-    email:
-        on_success: change
-        on_failure: change

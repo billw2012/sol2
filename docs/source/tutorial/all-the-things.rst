@@ -43,12 +43,20 @@ running lua code
 	// load and execute from file
 	lua.script_file("path/to/luascript.lua");
 
+	// run a script, get the result
+	int value = lua.script("return 54");
+	// value == 54
+
 	// load file without execute
-	sol::load_result script1 = state.load_file("path/to/luascript.lua");
+	sol::load_result script1 = lua.load_file("path/to/luascript.lua");
 	script1(); //execute
 	// load string without execute
-	sol::load_result script2 = state.load("a = 'test'");
+	sol::load_result script2 = lua.load("a = 'test'");
 	script2(); //execute
+
+	sol::load_result script3 = lua.load("return 24");
+	int value2 = script3(); // execute, get return value
+	// value2 == 24
 
 
 set and get variables
@@ -151,6 +159,8 @@ You can erase things by setting it to ``nullptr`` or ``sol::nil``.
 	// second_try == 322
 
 
+Note that if its a :doc:`userdata/usertype<../api/usertype>` for a C++ type, the destructor will run only when the garbage collector deems it appropriate to destroy the memory. If you are relying on the destructor being run when its set to ``sol::nil``, you're probably committing a mistake.
+
 tables
 ------
 
@@ -173,7 +183,7 @@ tables
 	);
 
 	sol::table abc = lua["abc"];
-	sol::state def = lua["def"];
+	sol::table def = lua["def"];
 	sol::table ghi = lua["def"]["ghi"];
 
 	int bark1 = def["ghi"]["bark"];
@@ -207,6 +217,8 @@ Make some:
 
 .. code-block:: cpp
 
+	sol::state lua;
+
 	lua["abc"] = lua.create_table_with(
 		0, 24
 	);
@@ -233,6 +245,8 @@ Equivalent Lua code:
 	
 
 You can put anything you want in tables as values or keys, including strings, numbers, functions, other tables.
+
+Note that this idea that things can be nested is important and will help later when you get into :ref:`namespacing<namespacing>`.
 
 
 functions
@@ -318,7 +332,7 @@ The lua code to call these things is:
 	
 	-- need class instance if you don't bind it with the function
 	print(m1(sc)) -- 24.5
-	-- does not need class instance: was made with one 
+	-- does not need class instance: was bound to lua with one 
 	print(m2()) -- 24.5
 	
 	-- need class instance if you 
@@ -339,6 +353,40 @@ The lua code to call these things is:
 	print(v2()) -- 254
 
 Can use ``sol::readonly( &some_class::variable )`` to make a variable readonly and error if someone tries to write to it.
+
+
+self call
+---------
+
+You can pass the 'self' argument through C++ to emulate 'member function' calls in Lua.
+
+.. code-block:: cpp
+	
+	sol::state lua;
+
+	lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table);
+
+	// a small script using 'self' syntax
+	lua.script(R"(
+	some_table = { some_val = 100 }
+
+	function some_table:add_to_some_val(value)
+	    self.some_val = self.some_val + value
+	end
+
+	function print_some_val()
+	    print("some_table.some_val = " .. some_table.some_val)
+	end
+	)");
+
+	// do some printing
+	lua["print_some_val"]();
+	// 100
+
+	sol::table self = lua["some_table"];
+	self["add_to_some_val"](self, 10);
+	lua["print_some_val"]();
+
 
 
 multiple returns from lua
@@ -370,7 +418,7 @@ multiple returns to lua
 
 	lua["f"] = [](int a, int b, sol::object c) {
 		// sol::object can be anything here: just pass it through
-		return std::make_tuple( 100, 200, c );
+		return std::make_tuple( a, b, c );
 	};
 	
 	std::tuple<int, int, int> result = lua["f"](100, 200, 300); 
@@ -494,17 +542,65 @@ Note that you can change the data of usertype variables and it will affect thing
 C++ classes put into Lua
 ------------------------
 
-See this :doc:`section here<cxx-in-lua>`.
+See this :doc:`section here<cxx-in-lua>` and after perhaps see if :doc:`simple usertypes suit your needs<../api/simple_usertype>`. Also check out some `a basic example`_, `special functions`_ and  `initializers`_, 
 
+
+.. _namespacing:
+
+namespacing
+-----------
+
+You can emulate namespacing by having a table and giving it the namespace names you want before registering enums or usertypes:
+
+.. code-block:: cpp
+	
+	struct my_class {
+		int b = 24;
+
+		int f () const {
+			return 24;
+		}
+
+		void g () {
+			++b;
+		}
+	};
+
+	sol::state lua;
+	lua.open_libraries();
+
+	// set up table
+	sol::table bark = lua.create_named_table("bark");
+	
+	bark.new_usertype<my_class>( "my_class", 
+		"f", &my_class::f,
+		"g", &my_class::g
+	); // the usual
+
+	// 'bark' namespace
+	lua.script("obj = bark.my_class.new()" );
+	lua.script("obj:g()");
+	my_class& obj = lua["obj"];
+	// obj.b == 25
+
+
+This technique can be used to register namespace-like functions and classes. It can be as deep as you want. Just make a table and name it appropriately, in either Lua script or using the equivalent Sol code. As long as the table FIRST exists (e.g., make it using a script or with one of Sol's methods or whatever you like), you can put anything you want specifically into that table using :doc:`sol::table's<../api/table>` abstractions.
 
 advanced
 --------
 
 Some more advanced things you can do/read about:
+	* :doc:`metatable manipulations<../api/metatable_key>` allow a user to change how indexing, function calls, and other things work on a single type.
 	* :doc:`ownership semantics<ownership>` are described for how lua deals with (raw) pointers.
 	* :doc:`stack manipulation<../api/stack>` to safely play with the stack. You can also define customization points for ``stack::get``/``stack::check``/``stack::push`` for your type.
+	* :doc:`make_reference/make_object convenience function<../api/make_reference>` to get the same benefits and conveniences as the low-level stack API but put into objects you can specify.
 	* :doc:`stack references<../api/stack_reference>` to have zero-overhead Sol abstractions while not copying to the Lua registry.
 	* :doc:`unique usertype traits<../api/unique_usertype_traits>` allows you to specialize handle/RAII types from other frameworks, like boost, and Unreal, to work with Sol.
 	* :doc:`variadic arguments<../api/variadic_args>` in functions with ``sol::variadic_args``.
 	* :doc:`this_state<../api/this_state>` to get the current ``lua_State*``.
 	* :doc:`resolve<../api/resolve>` overloads in case you have overloaded functions; a cleaner casting utility.
+
+.. _a basic example: https://github.com/ThePhD/sol2/blob/develop/examples/usertype.cpp
+.. _special functions: https://github.com/ThePhD/sol2/blob/develop/examples/usertype_special_functions.cpp
+.. _initializers: https://github.com/ThePhD/sol2/blob/develop/examples/usertype_initializers.cpp
+

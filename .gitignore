@@ -19,6 +19,9 @@ x64/
 *.sln
 *.gitattributes
 
+# VSCode
+.vscode/
+
 # Compiler outputs
 obj/*
 bin/*
@@ -59,3 +62,11 @@ docs/build/
 m.lua
 single/sol.hpp
 *.db
+lua53.dll
+main.exe
+main.o
+lua-5.3.3/
+main.lua
+LuaJIT-2.1.0/
+lua-5.3.3-cxx/
+lua-5.3.3.vcxproj-cxx.filters

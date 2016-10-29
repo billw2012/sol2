@@ -24,9 +24,25 @@
 
 #include <lua.hpp>
 
+#if defined(_WIN32) || defined(_MSC_VER)  || defined(__MINGW32__)
+#ifndef SOL_CODECVT_SUPPORT
+#define SOL_CODECVT_SUPPORT 1
+#endif // sol codecvt support
+#elif defined(__GNUC__)
+#if __GNUC__ >= 5
+#ifndef SOL_CODECVT_SUPPORT
+#define SOL_CODECVT_SUPPORT 1
+#endif // codecvt support
+#endif // g++ 5.x.x
+#else
+// Clang sucks and doesn't really utilize codecvt support,
+// not without checking the library versions explicitly (and we're not gonna do that, so fuck you)
+#endif // Windows/VC++ vs. g++ vs Others
+
 #ifdef LUAJIT_VERSION
 #ifndef SOL_LUAJIT
 #define SOL_LUAJIT
+#define SOL_LUAJIT_VERSION LUAJIT_VERSION_NUM
 #endif // sol luajit
 #endif // luajit
 
@@ -44,10 +60,15 @@
 
 #ifdef _MSC_VER
 #ifdef _DEBUG
+#ifndef NDEBUG
 #ifndef SOL_CHECK_ARGUMENTS
 // Do not define by default: let user turn it on
 //#define SOL_CHECK_ARGUMENTS
 #endif // Check Arguments
+#ifndef SOL_SAFE_USERTYPE
+#define SOL_SAFE_USERTYPE
+#endif // Safe Usertypes
+#endif // NDEBUG
 #endif // Debug
 
 #ifndef _CPPUNWIND
@@ -69,7 +90,11 @@
 #ifndef SOL_CHECK_ARGUMENTS
 // Do not define by default: let user choose
 //#define SOL_CHECK_ARGUMENTS
+// But do check userdata by default:
 #endif // Check Arguments
+#ifndef SOL_SAFE_USERTYPE
+#define SOL_SAFE_USERTYPE
+#endif // Safe Usertypes
 #endif // g++ optimizer flag
 #endif // Not Debug
 
@@ -86,5 +111,11 @@
 #endif // No RTTI
 
 #endif // vc++ || clang++/g++
+
+#ifndef SOL_SAFE_USERTYPE
+#ifdef SOL_CHECK_ARGUMENTS
+#define SOL_SAFE_USERTYPE
+#endif // Turn on Safety for all
+#endif // Safe Usertypes
 
 #endif // SOL_VERSION_HPP

@@ -58,9 +58,9 @@ The Feature Matrix™
 
 The below feature table checks for the presence of something. It, however, does not actually account for any kind of laborious syntax.
 
-✔ full support: works as you'd expecte (operator[] on tables, etc...)
+✔ full support: works as you'd expect (operator[] on tables, etc...)
 
-~ partial support / wonky support: this means its either supported through some other fashion (not with the desired syntax, serious caveats, etc.). Sometimes means dropping down t use the plain C API.
+~ partial support / wonky support: this means its either supported through some other fashion (not with the desired syntax, serious caveats, etc.). Sometimes means dropping down to use the plain C API (at which point, what was the point of the abstraction?).
 
 ✗ no support: feature doesn't work or, if it's there, it REALLY sucks to use
 
@@ -72,71 +72,74 @@ category explanations
 
 Explanations for a few categories are below (rest are self-explanatory).
 
-* optional: Support for getting an element, or potentially not (and not forcing the default construction of what amounts to a bogus/dead object). Usually comes with ``std(::experimental)::optional``. It's a fairly new class, so a hand-rolled class internal to the framework with similar semantics is also acceptable
+* optional: Support for getting an element, or potentially not (and not forcing the default construction of what amounts to a bogus/dead object). Usually comes with ``std(::experimental)::optional``. It's a fairly new class, so a hand-rolled class internal to the library with similar semantics is also acceptable
 * tables: Some sort of abstraction for dealing with tables. Ideal support is ``mytable["some_key"] = value``, and everything that the syntax implies.
-* table chaining: In conjunction with tables, having the ability to do nest deeply into tables ``mytable["key1"]["key2"]["key3"]``. Note that this becomes a tripping point for some libraries: crashing if ``"key1"`` doesn't exist while trying to access ``"key2"`` (Sol avoids this specifically when you use ``sol::optional``), and sometimes it's also a heavy performance bottleneck as expressions are not lazy-evaluated by a library.
-* arbitrary keys: Letting C++ code use userdata, other tables, integers, etc. as keys for into a table without dropping to the plain API.
-* user-defined types (udts): C++ types given form and function in lua code.
+* table chaining: In conjunction with tables, having the ability to query deeply into tables ``mytable["key1"]["key2"]["key3"]``. Note that this becomes a tripping point for some libraries: crashing if ``"key1"`` doesn't exist while trying to access ``"key2"`` (Sol avoids this specifically when you use ``sol::optional``), and sometimes it's also a heavy performance bottleneck as expressions are not lazy-evaluated by a library.
+* arbitrary keys: Letting C++ code use userdata, other tables, integers, etc. as keys for into a table.
+* user-defined types (udts): C++ types given form and function in Lua code.
 * udts - member functions: C++ member functions on a type, usually callable with ``my_object:foo(1)`` or similar in Lua.
-* udts - variables: C++ member variables, manipulated by ``my_object.var = 24`` and friends
-* function bindind: 
-* protected function:
-* multi-return: returning multiple values from and to lua
-* inheritance: allowing some degree of subtyping or inheritance on classes / userdata from lua
+* udts - table variables: C++ member variables/properties, manipulated by ``my_object.var = 24`` and in Lua
+* function binding: Support for binding all types of functions. Lambdas, member functions, free functions, in different contexts, etc... 
+* protected function: Use of ``lua_pcall`` to call a function, which offers error-handling and trampolining (as well as the ability to opt-in / opt-out of this behavior)
+* multi-return: returning multiple values from and to Lua (generally through ``std::tuple<...>`` or in some other way)
+* variadic/variant argument: being able to accept "anything" from Lua, and even return "anything" to Lua (``object`` abstraction, variadic arguments, etc...)
+* inheritance: allowing some degree of subtyping or inheritance on classes / userdata from Lua - this generally means that you can retrieve a base pointer from Lua even if you hand the library a derived pointer
 * overloading: the ability to call overloaded functions, matched based on arity or type (``foo( 1 )`` from lua calls a different function then ``foo( "bark" )``).
-* lua thread: basic wrapping of the lua thread API; ties in with coroutine.
-* coroutines: allowing a function to be called multiple times, 
+* Lua thread: basic wrapping of the lua thread API; ties in with coroutine.
+* coroutines: allowing a function to be called multiple times, resuming the execution of a Lua coroutine each time
 
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-|                           |   plain C   | luawrapper | lua-intf | luabind |  Selene  |    Sol    |   oolua   |   lua-api-pp   |  kaguya  |    SLB   |    SWIG   | luacppinterface | luwra |
-|                           |             |            |          |         |          |           |           |                |          |          |           |                 |       |
-+===========================+=============+============+==========+=========+==========+===========+===========+================+==========+==========+===========+=================+=======+
-| optional                  |      ~      |     ✗      |     ✗    |    ✗    |     ✗    |     ✔     |     ✗     |        ✗       |     ✗    |     ✗    |     ✗     |        ✗        |   ✗   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| tables                    |      ~      |     ~      |     ~    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ✗    |     ✗     |        ~        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| table chaining            |      ~      |     ~      |     ~    |    ✔    |     ✔    |     ✔     |     ✗     |        ✔       |     ✔    |     ✗    |     ✗     |        ~        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| arbitrary keys            |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✗     |        ~       |     ✔    |     ✗    |     ✗     |        ✗        |   ✗   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| user-defined types (udts) |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| udts: member functions    |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| udts: variables           |      ~      |     ~      |     ~    |    ~    |     ~    |     ✔     |     ~     |        ~       |     ~    |     ✗    |     ✔     |        ✗        |   ~   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| stack abstractions        |      ~      |     ✔      |     ~    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ~    |     ✗     |        ~        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| lua function from C(++)   |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| function binding          |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| protected function        |      ~      |     ✗      |     ~    |    ~    |     ~    |     ✔     |     ~     |        ✔       |     ~    |     ~    |     ~     |        ~        |   ~   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| multi-return              |      ~      |     ✗      |     ✗    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ~    |     ✔     |        ~        |   ~   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| inheritance               |      ~      |     ✗      |     ✗    |    ✔    |     ✔    |     ✔     |     ~     |        ~       |     ✔    |     ~    |     ✔     |        ~        |   ✗   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| overloading               |      ~      |     ✗      |     ✗    |    ✗    |     ✗    |     ✔     |     ✗     |        ✗       |     ✔    |     ✔    |     ✔     |        ✗        |   ✗   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| lua thread                |      ~      |     ✗      |     ✗    |    ✗    |     ✗    |     ✔     |     ✔     |        ✗       |     ✔    |     ✗    |     ✗     |        ✗        |   ✗   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| coroutines                |      ~      |     ✗      |     ✗    |    ✔    |     ✔    |     ✔     |     ✗     |        ✗       |     ✔    |     ✗    |     ✗     |        ✗        |   ✗   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| no-rtti support           |      ✔      |     ✗      |     ~    |    ✗    |     ✗    |     ✔     |     ✔     |        ✗       |     ✔    |     ✔    |     ~     |        ✔        |   ~   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| no-exception support      |      ✔      |     ✗      |     ~    |    ~    |     ✗    |     ✔     |     ✔     |        ✗       |     ✔    |     ✔    |     ~     |        ✔        |   ~   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| Lua 5.1                   |      ✔      |     ✔      |     ~    |    ✔    |     ✗    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✗        |   ~   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| Lua 5.2                   |      ✔      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| Lua 5.3                   |      ✔      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |   ✔   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| luajit                    |      ✔      |     ✔      |     ✔    |    ✔    |     ~    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✗        |   ~   |
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
-| distribution              |   compile   |    header  |   both   | compile |  header  |   header  |  compile  |     compile    |  header  |  compile | generated |     compile     | header|
-+---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+-------+
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+|                           |   plain C   | luawrapper | lua-intf | luabind |  Selene  |    Sol2   |   oolua   |   lua-api-pp   |  kaguya  |   SLB3   |    SWIG   | luacppinterface | luwra  |
+|                           |             |            |          |         |          |           |           |                |          |          |           |                 |        |
++===========================+=============+============+==========+=========+==========+===========+===========+================+==========+==========+===========+=================+========+
+| optional                  |      ~      |     ✗      |     ✔    |    ✗    |     ✗    |     ✔     |     ✗     |        ✗       |     ✔    |     ✗    |     ✗     |        ✗        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| tables                    |      ~      |     ~      |     ~    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ✗    |     ✗     |        ~        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| table chaining            |      ~      |     ~      |     ~    |    ✔    |     ✔    |     ✔     |     ✗     |        ✔       |     ✔    |     ✗    |     ✗     |        ~        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| arbitrary keys            |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✗     |        ~       |     ✔    |     ✗    |     ✗     |        ✗        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| user-defined types (udts) |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| udts: member functions    |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| udts: table variables     |      ~      |     ~      |     ~    |    ~    |     ~    |     ✔     |     ~     |        ~       |     ~    |     ✗    |     ✔     |        ✗        |    ~   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| stack abstractions        |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ~    |     ✗     |        ~        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| lua callables from C(++)  |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |    ~   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| function binding          |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ~       |     ✔    |     ~    |     ~     |        ~        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| protected call            |      ~      |     ✗      |     ~    |    ~    |     ~    |     ✔     |     ~     |        ✔       |     ~    |     ~    |     ~     |        ~        |    ~   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| multi-return              |      ~      |     ✗      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ~    |     ✔     |        ~        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| variadic/variant argument |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ✔       |     ✔    |     ~    |     ~     |        ~        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| inheritance               |      ~      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ~     |        ~       |     ✔    |     ~    |     ✔     |        ~        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| overloading               |      ~      |     ✗      |     ✔    |    ✗    |     ✗    |     ✔     |     ✗     |        ✗       |     ✔    |     ✔    |     ✔     |        ✗        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| Lua thread                |      ~      |     ✗      |     ~    |    ✗    |     ✗    |     ✔     |     ✔     |        ✗       |     ✔    |     ✗    |     ✗     |        ✔        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| coroutines                |      ~      |     ✗      |     ~    |    ✔    |     ✔    |     ✔     |     ✗     |        ✗       |     ✔    |     ✗    |     ✗     |        ✔        |    ✗   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| no-rtti support           |      ✔      |     ✗      |     ✔    |    ✗    |     ✗    |     ✔     |     ✔     |        ✗       |     ✔    |     ✔    |     ~     |        ✔        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| no-exception support      |      ✔      |     ✗      |     ✔    |    ~    |     ✗    |     ✔     |     ✔     |        ✗       |     ✔    |     ✔    |     ~     |        ✔        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| Lua 5.1                   |      ✔      |     ✔      |     ✔    |    ✔    |     ✗    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✗        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| Lua 5.2                   |      ✔      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| Lua 5.3                   |      ✔      |     ✔      |     ✔    |    ✔    |     ✔    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✔        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| luajit                    |      ✔      |     ✔      |     ✔    |    ✔    |     ~    |     ✔     |     ✔     |        ✔       |     ✔    |     ✔    |     ✔     |        ✗        |    ✔   |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
+| distribution              |   compile   |   header   |   both   | compile |  header  |   header  |  compile  |     compile    |  header  |  compile | generated |     compile     | header |
++---------------------------+-------------+------------+----------+---------+----------+-----------+-----------+----------------+----------+----------+-----------+-----------------+--------+
 
 
 notes on implementations
@@ -150,18 +153,17 @@ Plain C -
 
 kaguya -
 
-* Probably the closest in implementation details and interface to Sol itself
-* member variables are automatically turned into ``obj:x( value )`` to set and ``obj:x()`` to get
+* Table variables / member variables are automatically turned into ``obj:x( value )`` to set and ``obj:x()`` to get
+* Has optional support
 * Inspired coroutine support for Sol
 * Library author (satoren) is a nice guy!
 * C++11/14, or boostified (which makes it C++03 compatible)
 * Class registration is a bit verbose, but not as offensive as OOLua or lua-intf or others
-* Deserves lots of love!
 
 Sol -
 
-* Only library with Optional support, hoorah!
-* Prrreeettty fast (still working on being the ABSOLUTE FASTEST)!
+* One of the few libraries with optional support!
+* Basically the fastest in almomst all respects: http://sol2.readthedocs.io/en/latest/benchmarks.html
 * Overloading support can get messy with inheritance, see :doc:`here<api/overload>`
 * C++14/"C++1y" (-std=c++14, -std=c++1y, =std=c++1z) flags are used (available since GCC 4.9 and Clang 3.5)
 * Active issues, active individuals
@@ -170,42 +172,41 @@ Sol -
 lua-intf -
 
 * Can be both header-only or compiled
+* Has optional support
 * C++11
 * Macro-based registration (strange pseudo-language)
 * Fairly fast in most regards
 * Registering classes/"modules" in using C++ code is extremely verbose
-* In order to chain lookups, one has to do ``mykey.mykey2`` on the ``operator[]`` lookup (e.g., you can't nest them arbitrarily, you have to pre-compose the proper lookup string) (fails miserably for non-string lookups!).
+* In order to chain lookups, one has to glue the keys together (e.g. ``"mykey.mykey2"``) on the ``operator[]`` lookup (e.g., you can't nest them arbitrarily, you have to pre-compose the proper lookup string) (fails miserably for non-string lookups!).
 * Not too shabby!
 
 Selene -
 
-* member variables are automatically turned into ``obj:set_x( value )`` to set and ``obj:x()`` to get
+* Table variables / member variables are automatically turned into ``obj:set_x( value )`` to set and ``obj:x()`` to get
 * Registering classes/"modules" using C++ code is extremely verbose, similar to lua-intf's style
 * Eats crap when it comes to performance, most of the time (see :doc:`benchmarks<benchmarks>`)
-* Lots of users, but the Repository is kinda stagnant...
+* Lots of users (blogpost etc. made it popular), but the Repository is kinda stagnant...
 
 luawrapper -
 
 * Takes the approach of writing and reading tables using ``readVariable`` and ``writeVariable`` functions
-* C++11
-* No macros!
+* C++11, no macros!
 * The interface can be clunky (no table-like data structures: most things go though ``readVariable`` / ``writeVariable``)
 * Internal Compiler errors in Visual Studio 2015 - submitted a PR to fix it, hopefully it'll get picked up
 
 SWIG (3.0) - 
 
-* Very comprehensive for binding concepts of C++ (classes, variables, etc.) to lua
+* Very comprehensive for binding concepts of C++ (classes, variables, etc.) to Lua
 * Helps with literally nothing else (tables, threads, stack abstractions, etc.)
 * Not really a good, full-featured Library...
 * Requires preprocessing step (but it's not a... TERRIBLY complicated preprocessing step); some boilerplate in writing additional classes that you've already declared
 
 luacppinterface -
 
-* The branch that fixes VC++ warnings
-* No member variable support
+* The branch that fixes VC++ warnings and introduces some new work has type checker issues, so use the stable branch only
+* No table variable support
 * Actually has tables (but no operator[])
 * Does not support arbitrary keys
-* Pretty decent
 
 luabind -
 
@@ -220,10 +221,12 @@ lua-api-pp -
 
 * Compiled, but the recommendation is to add the source files directly to your project
 * Userdata registration with thick setup-macros: LUAPP_USERDATA( ... ) plus a bunch of free functions that take a ``T& self`` argument
-    - You can still bind member functions straight away in some cases, however
+    - You can bind member functions directly but only if you override metatable entries
+    - Otherwise, COMPLICATED self-registration that makes you wonder why you're using the framework
 * You have to create a context and then call it to start accessing the lua state (adding more boilerplate... thanks)
-    - Thankfully, unlike many libraries, it actually has a Table type that can be used semi-easily. FINALLY.
+    - Thankfully, unlike many libraries, it actually has a Table type that can be used semi-easily. FINALLY
 * C++11-ish in some regards
+* Sad face, thanks to the way userdata registration is handled
 
 SLB3 -
 
@@ -235,17 +238,22 @@ SLB3 -
 
 oolua -
 
-* The syntax for this library is thicker than a brick. No, seriously. `Go read the docs`_ 
-* The worst in terms of how to use it: may have docs, but the DSL (despite using C++11) is extraordinarily crappy with thick, hard-to-debug/hard-to-error-check macros
-    - Same problem as lua-api-pp: cannot have the declaration macros anywhere but the toplevel namespace
+* The syntax for this library. `Go read the docs`_ 
+* The worst in terms of how to use it: may have docs, but the DSL is extraordinarily crappy with thick, hard-to-debug/hard-to-error-check macros
+    - Same problem as lua-api-pp: cannot have the declaration macros anywhere but the toplevel namespace because of template declaration macro
 * Supports not having exceptions or rtti turned on (shiny!)
 * Poor RAII support: default-construct-and-get style (requires some form of initalization to perform a ``get`` of an object, and it's hard to extend)
+	- The library author has informed me that he does personally advises individuals do not use the ``Table`` abstraction in OOLua... Do I likewise tell people to consider its table abstractions defunct?
+* Table variables / member variables from C++ are turned into function calls (``get_x`` and ``set_x`` by default)
 
 luwra - 
 
+* How do you store stateful functors / lambas? So far, no support for such.
+* Cannot pull functions without first leaving them on the stack: manual cleanup becomes a thing
+* Doesn't understand ``std::function`` conversions and the like (but with some extra code can get it to work)
 * Recently improved by a lot: can chain tables and such, even if performance is a bit sad for that use case
-* Function calls and the like ridiculously fast, but uses macros to get there (can a template solution do just as good? Sol is going to find out!)
-* Can push/pop to the global namespace, but doing anything more detailed is... harder
-* No member variable support - get turned into getter/setter functions, similar to kaguya
+* When you do manage to set function calls with the macros they are fast (can a template solution do just as good? Sol is going to find out!)
+* No table variable support - get turned into getter/setter functions, similar to kaguya
+* Table variables become class statics (surprising)
 
 .. _Go read the docs: https://oolua.org/docs/index.html
